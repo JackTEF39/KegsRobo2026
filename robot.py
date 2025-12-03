@@ -24,3 +24,6 @@ robot.sleep(2)
 # stop both motors
 robot.motor_board.motors[0].power = 0
 robot.motor_board.motors[1].power = 0
+
+
+print(f" Hiiiiiii")
