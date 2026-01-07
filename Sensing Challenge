@@ -1,0 +1,25 @@
+import cv2
+
+from sr.robot3 import Robot, Colour, LED_A, LED_B, LED_C
+
+robot = Robot()
+
+
+my_motor_board = robot.motor_board
+my_arduino_board = robot.arduino
+my_servo_board = robot.servo_board
+
+robot.servo_board.servos[7].position = 0
+
+while True:
+    distance_mm = my_arduino_board.ultrasound_measure(9, 10)
+    print(f"Distance: {distance_mm} mm")
+
+    print(robot.servo_board.servos[7].position)
+
+    if distance_mm > 200:
+        robot.kch.leds[LED_B].colour = Colour.RED
+    else:
+        robot.kch.leds[LED_B].colour = Colour.BLUE
+
+
