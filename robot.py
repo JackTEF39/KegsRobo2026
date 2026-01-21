@@ -1,12 +1,8 @@
+#Josh fix ts smh
 from sr.robot3 import Robot, OUT_H0
 import math
-
-#Making 1 motor 50% power and the other 0% power for 1 second makes the robot turn 90 degrees.
-#arena boundary is range(20)
-#acidic samples are range(100, 140)
-#basic samples are range(140, 180)
-#for now I'll just get acids
-
+import time
+robot = Robot()
 def moveRobot(leftPower, rightPower, time): #sets motors and holds for (time) seconds
     robot.motor_board.motors[0].power = leftPower
     robot.motor_board.motors[1].power = rightPower
@@ -19,55 +15,80 @@ def setMotors(leftPower, rightPower): #just sets motors
     robot.motor_board.motors[0].power = leftPower
     robot.motor_board.motors[1].power = rightPower
 
-def moveUntilFrontBelow(distance):
-    distance_front = robot.arduino.ultrasound_measure(2, 3)
-
-    while distance_front > distance:
-        distance_front = robot.arduino.ultrasound_measure(2, 3)
-        print(distance_front)
-
-def printIds():
-    markers = robot.camera.see()
-    for marker in markers:
-        if marker.id in range(20):
-            print("arena")
-        elif marker.id in range(100, 140):
-            print("acid")
-        elif marker.id in range(140, 180):
-            print("base")
-
+# Convert from radians to degrees
 def toDegrees(radians):
     return radians * (180 / math.pi)
 
+# Convert from degrees to radians
 def toRadians(degrees):
     return degrees / (180 / math.pi)
-            
-robot = Robot()
-powerBoard = robot.power_board
-moveRobot(0.8, 0.5, 1)
-markers = []
-currentMarker = None
-while True:
-    setMotors(0, 0)
-    moveRobot(0.5, 0, 1)
-    markers = robot.camera.see() 
 
-    for marker in markers: #sees until an acid is found.
+# Simplified: take one marker and return its orientation values
+def markerOrientation(marker):
+    yaw = toDegrees(marker.position.horizontal_angle)
+    pitch = marker.orientation.pitch
+    roll = marker.orientation.roll
+    return yaw, pitch, roll
 
-        if marker.id in range(100, 140): #and marker.position.vertical_angle < 0.2: #if the marker is an acid and not raised it goes towards it.
-            currentMarker = marker
-            moveRobot(0.5 * (toDegrees(marker.position.horizontal_angle) / 90), 0, 1) #turn to face the acid then go toward it.
 
-            while robot.arduino.ultrasound_measure(2, 3) > 50:
-                moveRobot(0.8, 0.5, 0.4)
-            powerBoard.outputs[OUT_H0].is_enabled = True #turn vacuum on
+markers = robot.camera.see()
+print("I can see", len(markers), "markers:")
+for marker in markers:
+    print("Marker #{0} is {1} metres away".format(
+        marker.id,
+        marker.position.distance / 1000,
+    ))
 
-            #at this point vision is useless so we need to go by colour to get back to our lab.
-            
-            while True: #turn back to the lab
-                moveRobot(0.5, 0, 1)
-                markers = robot.camera.see()
-                for marker in markers:
-                    if marker.id == labID:
-                        moveRobot(0.5 * (toDegrees(marker.position.horizontal_angle) / 90), 0, 1)
-                        #use reflectance sensors to find our way back to the base
+if len(markers) > 0:
+    # keep `targetMarker` as the marker object (not just the id)
+    minDist = None
+    minRoll = None
+    for marker in markers:
+        print("distance",marker.position.distance)
+        print("horizontal",marker.position.horizontal_angle)
+        print("vertical",marker.position.vertical_angle)
+
+    if markers[0].position.distance < markers[1].position.distance:
+        targetMarker = markers[0]
+    else:
+        targetMarker = markers[1]
+    print("Selected nearest marker id: 1 ", targetMarker.id)
+    # get initial yaw from that marker
+    
+    yaw, pitch, roll = markerOrientation(targetMarker)
+    print(f"yaw {yaw} pitch {pitch} roll {roll}")
+
+else:
+    targetMarker = None
+    print("No markers visible")
+
+# Turn until the robot's yaw reaches -90 degrees (−π/6)
+if targetMarker == True:
+    while yaw > -(math.pi / 6):
+        count = 0
+        # small step turn: include time argument
+        moveRobot(0, 0.2, 0.1)
+        # update markers and recompute nearest marker and its yaw
+        targetMarker = robot.camera.see()
+        if not targetMarker:
+            print("Lost sight of markers — stopping turn")
+            break 
+        targetMarker = min(markers, key=lambda m: m.position.distance)
+        yaw, pitch, roll = markerOrientation(targetMarker)
+        count += 1
+        print("Step:", count, "Current yaw:", yaw) 
+        print(yaw)
+        setMotors(0, 0)
+        
+
+# Turn until the robot's yaw reaches 0 degrees (0)
+while yaw < 0:
+    moveRobot(0, 0.5, 0.1)
+        # update markers and recompute nearest marker and its yaw
+    markers = robot.camera.see()
+    if not markers:
+        print("Lost sight of markers — stopping turn")
+        break
+    targetMarker = min(markers, key=lambda m: m.position.distance)
+    yaw, pitch, roll = markerOrientation(targetMarker)
+    
