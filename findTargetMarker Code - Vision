@@ -1,0 +1,25 @@
+#function to search all markers and find the target Marker (marker the shortest distance away)
+def findTargetMarker():
+    distances = []
+    markers = robot.camera.see()
+    print("I can see", len(markers), "markers:")
+    for marker in markers:
+        distances.append(marker.position.distance)
+        print("Marker #{0} is {1} metres away".format(
+            marker.id,
+            marker.position.distance / 1000,
+        ))
+    targetMarkerD = min(distances)
+    print("The target Marker distance is:", targetMarkerD)
+
+    for marker in markers:
+        print("The marker ID currently being tested is:", marker.id)
+        print("The marker position distance currently being tested is:", marker.position.distance)
+        if marker.position.distance == targetMarkerD:
+            targetMarker = marker
+            print("Target Marker ID is #{0}".format(
+                marker.id
+            ))
+            return targetMarker
+        else:
+            print("The values do not match.")
