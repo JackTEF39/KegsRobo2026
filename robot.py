@@ -29,12 +29,19 @@ def moveRobot(leftPower, rightPower, time): #sets motors and holds for (time) se
     robot.motor_board.motors[1].power = 0
     return
 
+while True:
+    dist = marker.position.distance
+    hoirA = marker.position.angle
+    angCheck()
+    distCheck()
+    
+def angCheck(horA):
+    if abs(horA) > 15:
+        robot.kch.led[LED_A].colour = Colour.BLUE
+    elif abs(horA) < 15:
+        robot.kch.led[LED_A].colour = Colour.RED 
 
-def colcheck():
-    markers = robot.camera.see()
-    for marker in markers:
-        distance = marker.position.distance
-
+def disCheck(dist):
     if distance > 1.5:
         robot.kch.leds[LED_A].colour = Colour.RED
     elif distance >0.3 and distance <= 1.5:
@@ -43,7 +50,6 @@ def colcheck():
         robot.kch.leds[LED_A].colour = Colour.GREEN
     elif not distance:
         return 'error'
-    return distance
 
 robot.servo_board.servos[7].position = 0
 
