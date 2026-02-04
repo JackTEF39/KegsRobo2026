@@ -1,0 +1,26 @@
+def markerOrientationAngle(marker):
+        horA = marker.position.horizontal_angle
+        horAdeg = toDegrees(hor_A)
+        return horA, horAdeg
+    
+
+wantedM = findMarkerConcise()
+print(wantedM.position.horizontal_angle)
+moveRobot(0.4, 0, 2)
+new = wantedM.position.horizontal_angle
+print(new)
+
+#Rotate Robot Function - Not working
+def rotateRobot(targetMarker):
+    for marker in targetMarker:
+            hor_angle = targetMarker.position.horizontal_angle
+    print(hor_angle)
+    while  hor_angle < toDegrees(-(math.pi / 6)):
+        moveRobot(0, 0.5, 1.5)
+    # update markers and recompute nearest marker and its yaw
+        hor_angle = targetMarker.position.horizontal_angle
+        print(hor_angle)
+    print(markerOrientation(targetMarker))
+    if not targetMarker:
+        print("Lost sight of markers — stopping turn")
+        findTargetMarker()
