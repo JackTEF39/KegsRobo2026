@@ -40,7 +40,9 @@ def colcheck():
     elif distance >0.3 and distance <= 1.5:
         robot.kch.leds[LED_A].colour = Colour.BLUE
     elif distance <= 0.3:
-        robot.kch.leds[LED_A].colour = Colour.OFF
+        robot.kch.leds[LED_A].colour = Colour.GREEN
+    elif not distance:
+        return 'error'
     return distance
 
 robot.servo_board.servos[7].position = 0
@@ -49,12 +51,17 @@ if 1 < 2:
     print(markerOrientationYaw())
 
 
-#while colcheck() > 0.1:
- #   for i in range(0, 1500, 100):
-  #      markerOrientation()
-   #     moveRobot(0.1, 0.1, 1)
-    #    print(colcheck() / 1000)
-     #   robot.sleep(0.2)
+while True
+    if colcheck() > 0.1:
+        for i in range(0, 1500, 100):
+            markerOrientation()
+            moveRobot(0.1, 0.1, 1)
+            print(colcheck() / 1000)
+            robot.sleep(0.2)
+    elif colcheck() == 'error
+        or_fix()
+else:
+    break
 
 
 def or_fix():
