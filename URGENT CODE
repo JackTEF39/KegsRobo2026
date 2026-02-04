@@ -1,0 +1,169 @@
+#Nesockie UWU fix ts smh
+from sr.robot3 import Robot, OUT_H0
+import math
+import time
+robot = Robot()
+def moveRobot(leftPower, rightPower, time): #sets motors and holds for (time) seconds
+    robot.motor_board.motors[0].power = leftPower
+    robot.motor_board.motors[1].power = rightPower
+    robot.sleep(time)
+    robot.motor_board.motors[0].power = 0
+    robot.motor_board.motors[1].power = 0
+    return
+
+def setMotors(leftPower, rightPower): #just sets motors
+    robot.motor_board.motors[0].power = leftPower
+    robot.motor_board.motors[1].power = rightPower
+
+# Convert from radians to degrees
+def toDegrees(radians):
+    return radians * (180 / math.pi)
+
+# Convert from degrees to radians
+def toRadians(degrees):
+    return degrees / (180 / math.pi)
+
+# Simplified: take one marker and return its orientation values
+def markerOrientation(marker):
+    yaw = toDegrees(marker.position.horizontal_angle)
+    pitch = marker.orientation.pitch
+    roll = marker.orientation.roll
+    orientation = [yaw, pitch, roll]
+    return orientation
+
+
+#function to search all markers and find the target Marker (marker the shortest distance away)
+def findTargetMarker():
+    distances = []
+    markers = robot.camera.see()
+    print("I can see", len(markers), "markers:")
+    for marker in markers:
+        distances.append(marker.position.distance)
+        print("Marker #{0} is {1} metres away".format(
+            marker.id,
+            marker.position.distance / 1000,
+        ))
+    targetMarkerD = min(distances)
+    print("The target Marker distance is:", targetMarkerD)
+
+    for marker in markers:
+        print("The marker ID currently being tested is:", marker.id)
+        print("The marker position distance currently being tested is:", marker.position.distance)
+        if marker.position.distance == targetMarkerD:
+            targetMarker = marker
+            print("Target Marker ID is #{0}".format(
+                marker.id
+            ))
+            return targetMarker
+        else:
+            print("The values do not match.")
+def findMarkerConcise():
+    distances = []
+    markers = robot.camera.see()
+    for marker in markers:
+        distances.append(marker.position.distance)
+    targetMarkerD = min(distances)
+
+    for marker in markers:
+        if marker.position.distance == targetMarkerD:
+            targetMarker = marker
+            return targetMarker
+        else:
+            print("The values do not match.")
+
+
+
+def targetMarkerAngle(targetMarker):
+    horAngle = toDegrees(targetMarker.position.horizontal_angle)
+    return(horAngle)
+
+def defaultRotate():
+    moveRobot(0.2, 0, 2)
+
+robot.camera.see()
+testTargetMarker = findTargetMarker()
+print(targetMarkerAngle(testTargetMarker))
+defaultRotate()
+robot.camera.see()
+print(targetMarkerAngle(testTargetMarker))
+
+
+
+
+
+#setMotors(0,0)
+#print(findTargetMarker())
+#tm = findTargetMarker()
+#rotateRobot(tm)
+
+        
+redundant = """if len(markers) > 0:
+        # keep `targetMarker` as the marker object (not just the id)
+        
+        for marker in markers:
+            distance = marker.position.distance/1000
+            hor_angle = toDegrees(marker.position.horizontal_angle)
+            ver_angle = toDegrees(marker.position.vertical_angle)
+            print("distance: ", distance)
+            print("horizontal angle: ", hor_angle)
+            print("vertical angle: ", ver_angle)
+            targetMarker = min(marker.position.distance)
+            
+                targetMarker = marker
+        print("Selected nearest marker id: 1 ", targetMarker.id)
+        # get initial yaw from that marker
+    
+        orientation = markerOrientation(targetMarker)
+        yaw = orientation[0]
+        pitch = orientation[1]
+        roll = orientation[2]
+
+        print(f"yaw {toDegrees(yaw)} pitch {toDegrees(pitch)} roll {toDegrees(roll)}")
+
+    else:
+        targetMarker = None
+        print("No markers visible")
+    return targetMarker
+
+
+
+yaw = findTargetMarker().position.horizontal_angle
+
+# Turn until the robot's yaw reaches -90 degrees (−π/6)
+
+while abs(yaw) < toDegrees(-(math.pi / 6)):
+    count = 0
+    # small step turn: include time argument
+    moveRobot(0, 0.2, 0.1)
+    # update markers and recompute nearest marker and its yaw
+    targetMarker = findTargetMarker()
+    print(markerOrientation(targetMarker))
+    if not targetMarker:
+        print("Lost sight of markers — stopping turn")
+        findTargetMarker()
+
+        orientation = markerOrientation(targetMarker)
+        yaw = orientation[0]
+        pitch = orientation[1]
+        roll = orientation[2]
+
+    count += 1
+    print("Step:", count, "Current yaw:", yaw) 
+    print(yaw)
+    setMotors(0, 0)"""
+        
+
+"""# Turn until the robot's yaw reaches 0 degrees (0)
+while yaw < 0:
+    moveRobot(0, 0.5, 0.1)
+        # update markers and recompute nearest marker and its yaw
+    markers = robot.camera.see()
+    if not markers:
+        print("Lost sight of markers — stopping turn")
+        break
+    targetMarker = findTargetMarker()
+    orientation = markerOrientation(targetMarker)
+    yaw = orientation[0]
+    pitch = orientation[1]
+    roll = orientation[2]"""
+    
