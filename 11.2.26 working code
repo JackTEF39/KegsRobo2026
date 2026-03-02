@@ -93,32 +93,6 @@ def distCheck(dist):
         robot.kch.leds[LED_C].colour = Colour.OFF
         return 'error'
 
-# ---MAIN LOOP--- 
-while targetMarker is None:
-    targetMarker = findTargetMarker()
-    if targetMarker is None:
-        print("No markers found, retrying")
-        robot.sleep(0.1)
-    
-targetMarkerId = targetMarker.id
-while True:
-    markers = robot.camera.see()
-    found = False
-    for m in markers:
-        if m.id == targetMarkerId:
-            targetMarker = m
-            found = True
-    if found:
-        dist = m.position.distance / 1000
-        print(f"Distance to target: {dist}m")
-        distCheck(dist)
-
-    else:
-        print("Target marker not found!")
-        continue
-    
-    moveRobot(0.5, 0.5, 0.1)
-    robot.sleep(0.1)
 
     #horA = targetMarker.position.horizontal_angle
     #angCheck(horA)
@@ -151,26 +125,11 @@ def compareTargetMarkerID(targetMarkerID):
         else:
             print("The values do not match.")
 
-
-
 def targetMarkerAngle(targetMarker):
     horAngle = toDegrees(targetMarker.position.horizontal_angle)
     horAngle = round(horAngle,2)
     return(horAngle)
 
-def defaultRotate():
-    moveRobot(0.35, 0, 2)
-
-targetMarkerInfo = findTargetMarker()
-targetMarkerID = targetMarkerInfo[1]
-print(targetMarkerID)
-targetMarker = targetMarkerAngle(targetMarkerInfo[0])
-print(targetMarker)
-#defaultRotate()
-targetMarker = compareTargetMarkerID(targetMarkerID)
-print(targetMarkerAngle(targetMarker))
-
-    
 def angCheck(horA):
     if abs(horA) > 15:
         robot.kch.leds[LED_A].colour = Colour.BLUE
@@ -179,7 +138,31 @@ def angCheck(horA):
 
 
 
-#setMotors(0,0)
-#print(findTargetMarker())
-#tm = findTargetMarker()
-#rotateRobot(tm)
+# ---MAIN LOOP--- 
+targetMarker = findTargetMarker()
+while targetMarker is None:
+    targetMarker = findTargetMarker()
+    if targetMarker is None:
+        print("No markers found, retrying")
+        robot.sleep(0.1)
+    
+targetMarkerId = targetMarker.id
+while True:
+    markers = robot.camera.see()
+    found = False
+    for m in markers:
+        if m.id == targetMarkerId:
+            targetMarker = m
+            found = True
+            break
+    if found:
+        dist = targetMarker.position.distance / 1000
+        print(f"Distance to target: {dist}m")
+        distCheck(dist)
+
+    else:
+        print("Target marker not found!")
+        continue
+    
+    moveRobot(0.5, 0.5, 0.1)
+    robot.sleep(0.1)
