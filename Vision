@@ -2,25 +2,6 @@ from sr.robot3 import Robot, LED_A, LED_B, LED_C, Colour, OUT_H0
 import math
 robot = Robot()
 
-def moveRobot(leftPower, rightPower, time): #sets motors and holds for (time) seconds
-    robot.motor_board.motors[0].power = leftPower
-    robot.motor_board.motors[1].power = rightPower
-    robot.sleep(time)
-    robot.motor_board.motors[0].power = 0
-    robot.motor_board.motors[1].power = 0
-    return
-
-def setMotors(leftPower, rightPower): #just sets motors
-    robot.motor_board.motors[0].power = leftPower
-    robot.motor_board.motors[1].power = rightPower
-
-def moveUntilFrontBelow(distance):
-    distance_front = robot.arduino.ultrasound_measure(2, 3)
-
-    while distance_front > distance:
-        distance_front = robot.arduino.ultrasound_measure(2, 3)
-        print(distance_front)
-
 def printIds():
     markers = robot.camera.see()
     for marker in markers:
