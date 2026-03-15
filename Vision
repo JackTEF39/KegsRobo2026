@@ -117,7 +117,34 @@ def angCheck(horA):
     elif abs(horA) < 15:
         robot.kch.leds[LED_A].colour = Colour.RED 
 
-
+def alignPosition(targetId):
+    print(f"Aligning to marker {targetId}")
+    
+    while True:
+        markers = robot.camera.see()
+        target = None
+        for m in markers:
+            if m.id == targetId:
+                target = m
+                break 
+                
+        if target:
+            horA = targetMarkerAngle(target)
+            print(f"Current angle: {horA}")
+            nudge_size = int(abs(horA) * 5) 
+            
+            if horA > 2:
+                stepMotorsRotate(nudge_size) # Small nudge right
+            elif horA < -2:
+                stepMotorsRotate(-nudge_size) # Small nudge left
+            elif abs(horA) <= 2:
+                print("Aligned!")
+                break        
+        else:
+            print("Lost marker")
+            stepMotorsRotate(100) # Spin to find it again
+            
+        robot.sleep(0.05)
 
 # ---MAIN LOOP--- 
 targetMarker = findTargetMarker()
