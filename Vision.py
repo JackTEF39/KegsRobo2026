@@ -1,8 +1,11 @@
-from sr.robot3 import Robot, LED_A, LED_B, LED_C, Colour, OUT_H0
+from sr.robot3 import Colour, LED_A, LED_B, LED_C
 import math
-robot = Robot()
+import cv2
 
-def printIds():
+from Movement import *
+from Mechanism import *
+
+def printIds(robot):
     markers = robot.camera.see()
     for marker in markers:
         if marker.id in range(20):
@@ -19,7 +22,7 @@ def toRadians(degrees):
     return degrees / (180 / math.pi)
             
 #function to search all markers and find the target Marker (marker the shortest distance away)
-def findTargetMarker():
+def findTargetMarker(robot):
     distances = []
     markers = robot.camera.see()
     print("I can see", len(markers), "markers:")
@@ -44,13 +47,13 @@ def findTargetMarker():
         else:
             print("The values do not match.")
 
-def angCheck(horA):
+def angCheck(robot, horA):
     if abs(horA) > 15:
         robot.kch.leds[LED_A].colour = Colour.BLUE
     elif abs(horA) < 15:
         robot.kch.leds[LED_A].colour = Colour.RED 
 
-def distCheck(dist):
+def distCheck(robot, dist):
     if dist > 1.5:
         robot.kch.leds[LED_A].colour = Colour.RED
         robot.kch.leds[LED_B].colour = Colour.OFF
@@ -75,10 +78,7 @@ def distCheck(dist):
         return 'error'
 
 
-    #horA = targetMarker.position.horizontal_angle
-    #angCheck(horA)
-
-def findMarkerConcise():
+def findMarkerConcise(robot):
     distances = []
     markers = robot.camera.see()
     for marker in markers:
@@ -92,7 +92,7 @@ def findMarkerConcise():
         else:
             print("The values do not match.")
 
-def compareTargetMarkerID(targetMarkerID):
+def compareTargetMarkerID(robot, targetMarkerID):
     markers = robot.camera.see()
     for marker in markers:
         print("The marker ID currently being compared is:", marker.id)
@@ -111,13 +111,7 @@ def targetMarkerAngle(targetMarker):
     horAngle = round(horAngle,2)
     return(horAngle)
 
-def angCheck(horA):
-    if abs(horA) > 15:
-        robot.kch.leds[LED_A].colour = Colour.BLUE
-    elif abs(horA) < 15:
-        robot.kch.leds[LED_A].colour = Colour.RED 
-
-def alignPosition(targetId):
+def alignPosition(robot, targetId):
     print(f"Aligning to marker {targetId}")
     
     while True:
@@ -145,32 +139,3 @@ def alignPosition(targetId):
             stepMotorsRotate(100) # Spin to find it again
             
         robot.sleep(0.05)
-
-# ---MAIN LOOP--- 
-targetMarker = findTargetMarker()
-while targetMarker is None:
-    targetMarker = findTargetMarker()
-    if targetMarker is None:
-        print("No markers found, retrying")
-        robot.sleep(0.1)
-    
-targetMarkerId = targetMarker.id
-while True:
-    markers = robot.camera.see()
-    found = False
-    for m in markers:
-        if m.id == targetMarkerId:
-            targetMarker = m
-            found = True
-            break
-    if found:
-        dist = targetMarker.position.distance / 1000
-        print(f"Distance to target: {dist}m")
-        distCheck(dist)
-
-    else:
-        print("Target marker not found!")
-        continue
-    
-    moveRobot(0.5, 0.5, 0.1)
-    robot.sleep(0.1)
