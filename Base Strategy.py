@@ -1,0 +1,13 @@
+from sr.robot3 import Robot, Colour, LED_A, LED_B, LED_C, INPUT_PULLUP, OUTPUT, BRAKE, Note
+import math
+import cv2
+
+from Movement import *
+from Vision import *
+from Mechanism import *
+
+robot = Robot()
+
+initialSteps = distanceToSteps(1325) #1325mm is distance from Robot lined up to centre of nearest Base marker
+stepMotorsForward(initialSteps)
+
