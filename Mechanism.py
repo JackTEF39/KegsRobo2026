@@ -1,4 +1,3 @@
-from Vision import convertDistToSteps
 from sr.robot3 import Colour, LED_A, LED_B, LED_C
 
 from Movement import *
@@ -43,13 +42,13 @@ def deposit(robot, servo1, servo2):
     print("Depositing")
     mechanismOpen(robot, servo1, servo2)
     robot.sleep(1)
-    stepMotors(robot, convertDistToSteps(robot, -200)) # Move back to deposit 
+    stepMotors(robot, stepMotors(robot, 200)) # Move back to deposit 
     mechanismClose(robot, servo1, servo2)
     stepMotorsRotate(robot,60)
 
 def sweeper(robot, servo1, servo2):
     print("Sweeping")
-    stepMotors(robot, convertDistToSteps(robot, 200)) # Move forward to sweep
+    stepMotors(robot, stepMotors(robot, 200)) # Move forward to sweep
     sweep(robot, servo1)
     robot.sleep(1)
     stepMotors(robot, convertDistToSteps(robot, -200)) # Move back after sweeping
