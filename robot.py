@@ -29,8 +29,23 @@ robot.arduino.pins[3].mode = INPUT_PULLUP # Encoder inputs need to be pullup or 
 robot.arduino.pins[2].mode = INPUT_PULLUP
 robot.arduino.pins[5].mode = INPUT_PULLUP
 robot.arduino.pins[4].mode = INPUT_PULLUP
-        
-def initialise(): 
+
+def getHomeMarkerIds(robot):
+    z = robot.zone 
+    
+    # Mapping based on typical arena rules (Update these IDs to match your manual)
+    zone_map = {
+        0: (0, 1, 2),    
+        1: (7, 8, 9),    
+        2: (14, 15, 16), 
+        3: (21, 22, 23)  
+    }
+    
+    my_home_ids = zone_map.get(z, (0, 1, 2)) # Default to zone 0 if something goes wrong
+    print(f"Zone is {z}. Looking for Home IDs: {my_home_ids}")
+    return my_home_ids
+
+def initialise():
     marker = findTargetMarker(robot)
     if marker is not None:
         if marker.id in range(20):
@@ -41,6 +56,7 @@ def initialise():
         elif marker.id in range(140, 180):
             print("Base marker found")
             collecting = "base"
+    my_home_ids = getHomeMarkerIds(robot)
 
 def arduinoSet(pin, outState): #self explanatory.
     robot.arduino.pins[pin].digital_write(outState)
@@ -55,32 +71,27 @@ def moveWithChecks(robot, distance, targetId):
         alignToTarget(robot, targetId) # Check alignment after every step and adjust if necessary
         robot.sleep(0.01)
 
-def move_mm(robot, distance):
-    total_steps = int(distance * STEPS_PER_MM)
-    stepMotorsForward(robot, total_steps)
-
-
 def visionMvnmtTest1():                          #isolated vision and mvnmt test no checks
     target = findTargetMarker(robot)
     alignToTarget(robot, target)
-    dist = distToMoveMM(robot, target)
+    dist = horDistCalculate(robot, target)
     print(f"Distance to target: {dist}m")
-    move_mm(robot, dist + 200)
+    stepMotorsForward(robot, 2000)
 
 def visionMvnmtTest2():                          #vision and mvnmt test with checks
     target = findTargetMarker(robot)
     alignToTarget(robot, target)
-    dist = distToMoveMM(robot, target)
+    dist = horDistCalculate(robot, target)
     print(f"Distance to target: {dist}m")
     moveWithChecks(robot, dist + 200, target.id)
 
 def fullSysTest():                              #vision mvmnt + mechanism test
     target = findTargetMarker(robot)
     alignToTarget(robot, target)
-    dist = distToMoveMM(robot, target)
+    dist = horDistCalculate(robot, target)
     mechanismOpen(servo1, servo2, robot)
     print(f"Distance to target: {dist}m")
-    move_mm(robot, dist + 200)
+    stepMotorsForward(robot, 2000)
     mechanismClose(servo1, servo2, robot)
 
 angleesss = True
