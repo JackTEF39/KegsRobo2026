@@ -2,7 +2,6 @@ from sr.robot3 import Colour, LED_A, LED_B, LED_C
 import math
 import cv2
 
-from robot import moveWithChecks
 from Movement import *
 from Mechanism import *
 CAMHEIGHT = 0.12 #height of the camera from the ground in metres
@@ -201,7 +200,7 @@ def returnToHome(robot, my_home_ids):
         if homeM:
             dist = horDistCalculate(robot, homeM)
             print(f"Distance to home: {dist}m")
-            moveWithChecks(robot, dist, curr_home_id)
+            stepMotors(robot, convertDistToSteps(robot, dist))
 
             if dist < 150: 
                 print("Inside Home Zone. Stopping.")
