@@ -161,37 +161,37 @@ def alignToTarget(robot, targetId): #--FINISH LATER--
             
         robot.sleep(1)
 
-def returnToHome(robot):
+def returnToHome(robot, my_home_ids):
     print("Action: Returning to Home")
-    home_id = None
-    
-    while not home_id:
+    curr_home_id = None
+    while not curr_home_id:
         markers = robot.camera.see()
         for m in markers:
-            if 0 <= m.id <= 20: #change later 
-                home_id = m.id
-                print(f"Home marker {home_id} spotted.")
+            if m.id in my_home_ids:
+                curr_home_id = m.id
+                print(f"Home marker {curr_home_id} spotted.")
                 break
         
-        if home_id is None:
+        if curr_home_id is None:
             print("Home not in sight. Searching...")
             stepMotorsRotate(robot, 40)
             robot.sleep(1)
 
-    alignToTarget(robot, home_id)
+    alignToTarget(robot, curr_home_id)
     
     print("Aligned. Driving to zone...")
+    reached = False
     while not reached:
         markers = robot.camera.see()
         for m in markers:
-            if m.id == home_id:
+            if m.id == curr_home_id:
                 homeM = m
-                print(f"Home marker {home_id} spotted.")
+                print(f"Home marker {curr_home_id} spotted.")
                 break        
         if homeM:
             dist = horDistCalculate(robot, homeM)
             print(f"Distance to home: {dist}m")
-            moveWithChecks(robot, dist, home_id)
+            moveWithChecks(robot, dist, curr_home_id)
 
             if dist < 150: 
                 print("Inside Home Zone. Stopping.")
