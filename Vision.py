@@ -97,19 +97,29 @@ def distCheck(robot, dist):
         return 'error'
 
 
-def findNextMarker270(robot): #--FINISH LATER--
+def findNextMarker360(robot):
     distances = []
+    closeMarker = []
     markers = robot.camera.see()
-    for marker in markers:
-        distances.append(marker.position.distance)
-    targetMarkerD = min(distances)
-
-    for marker in markers:
-        if marker.position.distance == targetMarkerD:
-            targetMarker = marker
-            return targetMarker
+    for i in range(12):
+        if not markers:
+            print("No markers detected. Rotating to search...")
+            stepMotorsRotate(robot, convertAngToSteps(robot, 90))
+            robot.sleep(1)
         else:
-            print("The values do not match.")
+            for marker in markers:
+                distances.append(marker.position.distance)
+                targetMarkerD = min(distances)
+
+            for marker in markers:
+                if marker.position.distance == targetMarkerD:
+                    targetMarker = marker
+                    closeMarker.append(targetMarker)
+                else:
+                    print("The values do not match.")
+            stepMotorsRotate(robot, convertAngToSteps(robot, 30))
+    return min(closeMarker)
+
 
 def compareTargetMarkerID(robot, targetMarkerID):
     markers = robot.camera.see()
@@ -130,14 +140,14 @@ def targetMarkerAngle(targetMarker):
     horAngle = round(horAngle,2)
     return(horAngle)
 
-def alignToTarget(robot, targetId): #--FINISH LATER--
-    print(f"Aligning to marker {targetId}")
+def alignToTarget(robot, target): #--FINISH LATER--
+    print(f"Aligning to marker {target.id}")
     
     while True:
         markers = robot.camera.see()
         target = None
         for m in markers:
-            if m.id == targetId:
+            if m.id == target.id:
                 target = m
                 break 
                 
@@ -156,8 +166,8 @@ def alignToTarget(robot, targetId): #--FINISH LATER--
                 robot.sleep(5)
                 break        
         else:
-            print("Lost marker")
-            stepMotorsRotate(robot,100) # Spin to find it again
+            print("Lost marker, rotating")
+            stepMotorsRotate(robot, convertAngToSteps(robot, 30)) # Spin to find it again
             
         robot.sleep(1)
 
@@ -199,7 +209,7 @@ def returnToHome(robot, my_home_ids):
                 break
         else:
             print("Lost sight of home marker. Stopping.")
-            stepMotorsRotate(robot, 150) # Spin to find it again
+            stepMotorsRotate(robot, convertAngToSteps(robot, 30)) # Spin to find it again
             robot.sleep(1)
     return
 

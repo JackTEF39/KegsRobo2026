@@ -32,16 +32,14 @@ robot.arduino.pins[4].mode = INPUT_PULLUP
 
 def getHomeMarkerIds(robot):
     z = robot.zone 
-    
-    # Mapping based on typical arena rules (Update these IDs to match your manual)
     zone_map = {
-        0: (0, 1, 2),    
-        1: (7, 8, 9),    
-        2: (14, 15, 16), 
-        3: (21, 22, 23)  
+        0: (0, 18, 19),    
+        1: (3, 4, 5),    
+        2: (8, 9, 10), 
+        3: (13, 14, 15),  
     }
     
-    my_home_ids = zone_map.get(z, (0, 1, 2)) # Default to zone 0 if something goes wrong
+    my_home_ids = zone_map.get(z, (0, 18, 19)) # Default to zone 0 if something goes wrong
     print(f"Zone is {z}. Looking for Home IDs: {my_home_ids}")
     return my_home_ids
 
@@ -78,12 +76,18 @@ def visionMvnmtTest1():                          #isolated vision and mvnmt test
     print(f"Distance to target: {dist}m")
     stepMotorsForward(robot, 2000)
 
-def visionMvnmtTest2():                          #vision and mvnmt test with checks
+def alignCheck():                      #vision and mvnmt test with checks
     target = findTargetMarker(robot)
+    print(f"Target {target.id} found. Aligning")
+    alignToTarget(robot, target)
+
+def visionMvnmtTest2():                      #vision and mvnmt test with checks
+    target = findTargetMarker(robot)
+    print(f"Target {target.id} found. Aligning")
     alignToTarget(robot, target)
     dist = horDistCalculate(robot, target)
     print(f"Distance to target: {dist}m")
-    moveWithChecks(robot, dist + 200, target.id)
+    moveWithChecks(robot, dist -100, target.id)
 
 def fullSysTest():                              #vision mvmnt + mechanism test
     target = findTargetMarker(robot)
@@ -100,23 +104,7 @@ distssss = False
 print('robot started')
 indicatePowerOn(robot)
 
-# --- ALIGNMENT TEST ---
-print("Searching for marker")
-
-while True:
-    markers = robot.camera.see()
-    
-    if len(markers) > 0:
-        target = markers[0]
-        print(f"Target {target.id} found. Aligning")
-        alignToTarget(robot, target.id)
-        
-        print("Aligned! Waiting 5s")
-        robot.sleep(5)
-    else:
-        print("No markers in sight.")
-        
-    robot.sleep(3)
+alignCheck()
 
 
 
