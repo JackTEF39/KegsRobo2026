@@ -8,9 +8,8 @@ from Mechanism import *
 
 robot = Robot()
 
-CAMHEIGHT = 0.12 #height of the camera from the ground in metres
+CAMHEIGHT = 120 #height of the camera from the ground in metres
 #CAMANGLE = 20 #angle of the camera to the ground in degrees
-DEG10 = 20 # num of degrees the robot turns for a 10 degree turn clockwise
 STEPS_PER_MM = 2.476 #How far the robot moves per step of the motor (in mm)
 
 #Motor control:
@@ -104,7 +103,38 @@ distssss = False
 print('robot started')
 indicatePowerOn(robot)
 
-alignCheck()
+targ = None
+targ_id = None
+print("Starting search...")
+
+while targ is None:
+    markers = robot.camera.see()
+    
+    if len(markers) > 0:
+        # We found at least one marker!
+        targ = markers[0]
+        targ_id = targ.id
+        print(f"Target {targ.id} acquired.")
+    else:
+        # No markers seen, nudge the robot and try again
+        print("Nothing seen. Nudging...")
+        stepMotorsRotate(robot, 10) # Small turn
+        robot.sleep(0.2)
+al = False
+while not al:
+    al = alignToTarget(robot, targ_id)
+targ = None
+markers = robot.camera.see()
+for m in markers:
+    if m.id == targ_id:
+        targ = m
+if targ:
+    dist = horDistCalculate(robot, targ)
+    print(f"Travelling {dist}mm now")
+    stepMotorsForward(robot, convertDistToSteps(robot, dist))
+    print(f"Should be at target now")
+else:
+    print("Lost target")
 
 
 
