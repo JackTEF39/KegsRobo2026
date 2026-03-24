@@ -22,6 +22,13 @@ def convertDistToSteps(robot, dist):
     return steps
 
 
+def findHomeMarkers(robot, my_home_ids): #again check ditionary
+    markers = robot.camera.see()
+    homeMarkersSeen = [item for item in markers if item in my_home_id]
+    if homeMarkersSeen:
+        return homeMarkersSeen[0]
+    else:        
+        return None 
 def detectId(robot):
     markers = robot.camera.see()
     for marker in markers:
@@ -39,12 +46,15 @@ def toRadians(degrees):
     return degrees / (180 / math.pi)
             
 #function to search all markers and find the target Marker (marker the shortest distance away)
-def findTargetMarker(robot):
+def findTargetMarker(robot, type=None):
     distances = []
     markers = robot.camera.see()
+    if not markers:
+        stepMotors(-600)
+        return None
     print("I can see", len(markers), "markers:")
     for marker in markers:
-        if marker.id in range(100, 140): #new addition
+        if marker.id in range(100, 140): #new addition- need to integrate zone ids
             distances.append(marker.position.distance)
         print("Marker #{0} is {1} metres away".format(
             marker.id,
@@ -56,7 +66,25 @@ def findTargetMarker(robot):
     for marker in markers:
         print("The marker ID currently being tested is:", marker.id)
         print("The marker position distance currently being tested is:", marker.position.distance)
-        if marker.position.distance == targetMarkerD:
+        if type == "arena" and marker.id in range(20):
+            targetMarker = marker
+            print("Target Marker ID is #{0}".format(
+                marker.id
+            ))
+            return targetMarker
+        elif type == "acid" and marker.id in range(100, 140):
+            targetMarker = marker
+            print("Target Marker ID is #{0}".format(
+                marker.id
+            ))
+            return targetMarker
+        elif type == "base" and marker.id in range(140, 180):
+            targetMarker = marker
+            print("Target Marker ID is #{0}".format(
+                marker.id
+            ))
+            return targetMarker
+        elif type == None and marker.position.distance == targetMarkerD:
             targetMarker = marker
             print("Target Marker ID is #{0}".format(
                 marker.id
@@ -185,8 +213,9 @@ def returnToHome(robot, my_home_ids):
             print("Home not in sight. Searching...")
             stepMotorsRotate(robot, 40)
             robot.sleep(1)
-
-    alignToTarget(robot, curr_home_id)
+    aligned = None
+    while not aligned:
+        aligned = alignToTarget(robot, curr_home_id)
     
     print("Aligned. Driving to zone...")
     reached = False
@@ -212,3 +241,14 @@ def returnToHome(robot, my_home_ids):
             robot.sleep(1)
     return
 
+def backToBase(robot, homeMarkers):  #same function as one above, so need to cimpare fucntionality. 
+    targetMarker = findTargetMarker(robot, "arena")
+    while targetMarker is None:
+        targetMarker = findTargetMarker(robot, "arena")
+        if targetMarker is None:
+            stepMotorsRotate(robot, convertStepsToAngle(60))
+            robot.sleep(0.1)
+            if findHomeMarker(robot, homeMarkers) is not None:
+                alignToTarget(robot, findHomeMarker(robot, homeMarkers))
+                dist = distToMoveMM(robot, targetMarker)
+                break
