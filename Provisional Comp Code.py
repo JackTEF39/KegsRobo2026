@@ -104,13 +104,19 @@ distssss = False
 print('Robot started')
 indicatePowerOn(robot)
 
-TARGET_BOXES = 3        # Number of boxes to collect before heading home - CAN EDIT MANUALLY
+TARGET_BOXES = 2        # Number of boxes to collect before heading home - CAN EDIT MANUALLY
 boxes_collected = 0
+matchStartTime = robot.time() 
+MATCH_DURATION = 150 # Total match length in seconds
+ABORT_THRESHOLD = 20 # How many seconds before the end to head home
 
-#1. Determine whether robot is looking for acids or bases
+markerIDsAcquired = [] # Array to store which marker IDs robot has successfully collected
+
+#1. INITIALSATION - Determine whether robot is looking for acids or bases
 # Get our allowed IDs at the start
 ALLOWED_MARKERS = decidePH() # remember to go to Vision.py to change COLLECTING_PH variable!
 HOME_IDS = getHomeMarkerIds(robot)
+getHomeMarkerIds()
 
 #2. Get first acid/base marker
 if COLLECTING_PH == "acid":
@@ -119,21 +125,27 @@ else:
     getFirstBase()
 
 #3. -- MAIN COLLECTION LOOP (floor markers)
-while boxes_colleced < TARGET_BOXES:
+while boxes_collected < TARGET_BOXES:
+    # --- TIME CHECK
+    elapsed_time = robot.time() - matchStartTime
+    time_remaining = MATCH_DURATION - elapsed_time
+    if (MATCH_DURATION - elapsed) <= ABORT_THRESHOLD:
+        print("Time is running out mid-search! Heading home.")
+        break # This exits the 'while' loop immediately - robot returns home mid search
 
     targ = None
     targ_id = None
     searchStartTime = robot.time()
     print(f"Searching for {COLLECTING_PH} #{boxes_collected + 1}...")
 
-    # STATE: SEARCHING FOR MARKER
+    # 3a. STATE: SEARCHING FOR MARKER
     while targ is None:
         markers = findTargetMarker(robot) # searching for marker with closest horizontal distance
         for m in markers:
-            if m.id in ALLOWED_MARKERS: # Only grabs what we are looking for
+            if m.id in ALLOWED_MARKERS and m.id not in markerIDsAcquired: # Only grabs what we are looking for
                 targ = m
                 targ_id = m.id
-                print("Target", targ_id, "acquired")
+                print(f"Target {targ.id} acquired.")
                 endSearchTime = robot.time()
                 break
     #if len(markers) > 0: [just gonna comment this out...]
@@ -141,26 +153,39 @@ while boxes_colleced < TARGET_BOXES:
         #targ = markers[0]
         #targ_id = targ.id
        # print(f"Target {targ.id} acquired.")
-            elif notFoundMarkerTime < 3: # Little adjustment to search first:
-            # No markers seen, nudge the robot and try again 
-                print("Nothing seen. Nudging...")
-                stepMotorsRotate(robot, 10) # Small turn - CHECK VALUES!!!!!!!
-                robot.sleep(0.2)
+    
+    # 3b. STATE: MOVING TOWARDS MARKER 
+    al = False
+    while not al:
+        al = alignToTarget(robot, targ_id)
+    targ = None
+    markers = robot.camera.see()
+    for m in markers:
+        if m.id == targ_id:
+            targ = m
+    if targ:
+        dist = horDistCalculate(robot, targ)
+        print(f"Travelling {dist}mm now")
+        #SIMON/JOSH - ADD BOTTOM MECHANISM OPEN FUNC HERE!!
+        stepMotorsForward(robot, convertDistToSteps(robot, dist))
+        print(f"Should be at target now")
+        #SIMON/JOSH - ADD BOTTOM MECHANISM CLOSE FUNC HERE!!
+        print()
+        boxes_collected += 1
+        markerIDsAcquired.append(targ_id)
+        print(f"Successfully collected box {boxes_collected}")
 
-            else: #Robot has fully lost sight of marker # -- I got up to here --
-        
-al = False
-while not al:
-    al = alignToTarget(robot, targ_id)
-targ = None
-markers = robot.camera.see()
-for m in markers:
-    if m.id == targ_id:
-        targ = m
-if targ:
-    dist = horDistCalculate(robot, targ)
-    print(f"Travelling {dist}mm now")
-    stepMotorsForward(robot, convertDistToSteps(robot, dist))
-    print(f"Should be at target now")
-else:
-    print("Lost target")
+    else:
+        print("Lost target")
+        al = False
+        continue #??? - I want it to research and realign to try and get the marker again
+        #seems to good to be true... CHECK
+
+# 4. Return to base (once robot has collected 2 markers)
+returnToHome(robot, my_home_ids)
+boxes_collected = 0
+
+# 5. Last return home (no matter what robot is doing)
+if (MATCH_DURATION - elapsed_time) <= ABORT_THRESHOLD:
+        print("Time is running out mid-search! Heading home.")
+        returnToHome(robot, my_home_ids)
