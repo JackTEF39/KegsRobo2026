@@ -187,5 +187,5 @@ boxes_collected = 0
 
 # 5. Last return home (no matter what robot is doing)
 if (MATCH_DURATION - elapsed_time) <= ABORT_THRESHOLD:
-        print("Time is running out mid-search! Heading home.")
+        print("Time is running out! Heading home.")
         returnToHome(robot, my_home_ids)
