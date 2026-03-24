@@ -6,6 +6,8 @@ import cv2
 from Movement import *
 from Vision import *
 from Mechanism import *
+from AcidStrategy import *
+from BaseStrategy import *
 
 robot = Robot()
 
@@ -116,13 +118,13 @@ markerIDsAcquired = [] # Array to store which marker IDs robot has successfully 
 # Get our allowed IDs at the start
 ALLOWED_MARKERS = decidePH() # remember to go to Vision.py to change COLLECTING_PH variable!
 HOME_IDS = getHomeMarkerIds(robot)
-getHomeMarkerIds()
+my_home_ids = getHomeMarkerIds()
 
 #2. Get first acid/base marker
 if COLLECTING_PH == "acid":
-    getFirstAcid()
+   targ_idg= getFirstAcid()
 else:
-    getFirstBase()
+   targ_id = getFirstBase()
 
 #3. -- MAIN COLLECTION LOOP (floor markers)
 while boxes_collected < TARGET_BOXES:
