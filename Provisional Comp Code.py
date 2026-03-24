@@ -129,7 +129,7 @@ while boxes_collected < TARGET_BOXES:
     # --- TIME CHECK
     elapsed_time = robot.time() - matchStartTime
     time_remaining = MATCH_DURATION - elapsed_time
-    if (MATCH_DURATION - elapsed) <= ABORT_THRESHOLD:
+    if (MATCH_DURATION - elapsed_time) <= ABORT_THRESHOLD:
         print("Time is running out mid-search! Heading home.")
         break # This exits the 'while' loop immediately - robot returns home mid search
 
