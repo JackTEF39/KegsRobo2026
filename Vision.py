@@ -4,94 +4,240 @@ import cv2
 
 from Movement import *
 from Mechanism import *
-CAMHEIGHT = 0.12 #height of the camera from the ground in metres
-#CAMANGLE = 20 #angle of the camera to the ground in degrees
+from Helpers import *
 
 
-def horDistCalculate(robot, targetMarker):
-    dist = targetMarker.position.distance **2 - CAMHEIGHT**2
-    dist = math.sqrt(dist) / 1000
-    return dist
+TARGET_BOXES = 2        # Number of boxes to collect before heading home - CAN EDIT MANUALLY
+boxes_collected = 0
+matchStartTime = 0 
+MATCH_DURATION = 150 # Total match length in seconds
+ABORT_THRESHOLD = 20 # How many seconds before the end to head home
 
-def convertAngToSteps(robot, angle):
-    steps = int(angle * STEPS_PER_DEGREE)
-    return steps
+markerIDsAcquired = [] # Array to store which marker IDs robot has successfully collected
+COLLECTING_PH = "base" # MANUALLY Change this to acid or base before game starts!!
+
+
+def decidePH(robot, COLLECTING_PH): 
+    if COLLECTING_PH == "acid":
+        # Acid markers are 100 to 139
+        target_range = range(100, 140)
+        print("STRATEGY: Hunting for ACIDS")
+    elif COLLECTING_PH == "base":
+        # Base markers are 140 to 179
+        target_range = range(140, 180)
+        print("STRATEGY: Hunting for BASES")
+    else:
+        print("This is a wall marker")
+        target_range = range(0, 20)
     
-def convertDistToSteps(robot, dist):
-    steps = int(dist * STEPS_PER_MM)
-    return steps
+    return target_range
 
 
-def findHomeMarkers(robot, my_home_ids): #again check ditionary
-    markers = robot.camera.see()
-    homeMarkersSeen = [item for item in markers if item in my_home_id]
-    if homeMarkersSeen:
-        return homeMarkersSeen[0]
-    else:        
-        return None 
-def detectId(robot):
-    markers = robot.camera.see()
-    for marker in markers:
-        if marker.id in range(20):
-            return "arena"
-        elif marker.id in range(100, 140):
-            return "acid"
-        elif marker.id in range(140, 180):
-            return "base"
-
-def toDegrees(radians):
-    return radians * (180 / math.pi)
-
-def toRadians(degrees):
-    return degrees / (180 / math.pi)
             
 #function to search all markers and find the target Marker (marker the shortest distance away)
-def findTargetMarker(robot, type=None):
-    distances = []
+def findTargetMarker(robot, marker_type=None, top = False):
+    valid_marker = []
     markers = robot.camera.see()
     if not markers:
-        stepMotors(-600)
+        stepMotors(robot, -600)
         return None
     print("I can see", len(markers), "markers:")
-    for marker in markers:
-        if marker.id in range(100, 140): #new addition- need to integrate zone ids
-            distances.append(marker.position.distance)
-        print("Marker #{0} is {1} metres away".format(
-            marker.id,
-            marker.position.distance / 1000,
-        ))
-    targetMarkerD = min(distances)
-    print("The target Marker distance is:", targetMarkerD)
 
     for marker in markers:
-        print("The marker ID currently being tested is:", marker.id)
-        print("The marker position distance currently being tested is:", marker.position.distance)
-        if type == "arena" and marker.id in range(20):
-            targetMarker = marker
-            print("Target Marker ID is #{0}".format(
-                marker.id
-            ))
-            return targetMarker
-        elif type == "acid" and marker.id in range(100, 140):
-            targetMarker = marker
-            print("Target Marker ID is #{0}".format(
-                marker.id
-            ))
-            return targetMarker
-        elif type == "base" and marker.id in range(140, 180):
-            targetMarker = marker
-            print("Target Marker ID is #{0}".format(
-                marker.id
-            ))
-            return targetMarker
-        elif type == None and marker.position.distance == targetMarkerD:
-            targetMarker = marker
-            print("Target Marker ID is #{0}".format(
-                marker.id
-            ))
-            return targetMarker
+        verA = targetMarkerAngleV(robot, marker)
+        if not top:
+            if marker.id in markerIDs[marker_type] and marker.id not in markerIDsAcquired and verA < 5: # Only grabs what we are looking for: #new addition- need to integrate zone ids
+                valid_marker.append(marker)
         else:
-            print("The values do not match.")
+            if marker.id in markerIDs[marker_type] and marker.id not in markerIDsAcquired and verA > 5: # Only grabs what we are looking for: #new addition- need to integrate zone ids
+                valid_marker.append(marker)
+    
+    if valid_marker:
+        targetMarker = min(valid_marker, key=lambda m: m.position.distance)
+        print(f"Target Marker ID is #{targetMarker.id} at distance {targetMarker.position.distance}m")
+        return targetMarker
+    return None
+
+def findNextMarker180(robot, marker_type=None):
+    potentials = []
+    
+    stepMotorsRotate(robot, convertAngToSteps(-90)) #goes 90 one way
+    target = findTargetMarker(robot, marker_type)
+    if target:
+        potentials.append(target)
+    
+    stepMotorsRotate(robot, convertAngToSteps(180)) #goes 90 in other direction
+    target = findTargetMarker(robot, marker_type)
+    if target:
+        potentials.append(target)
+    
+    if not potentials:
+        stepMotorsRotate(robot, convertAngToSteps(-90)) # return to centre
+        return None
+    
+    best = min(potentials, key=lambda m: m.position.distance)     # picks closest
+
+    print(f"Best marker is #{best.id} at {best.position.distance}mm")
+    
+    alignToTarget(robot, best.id)
+    return best
+
+def findNextMarker360(robot, marker_type=None):
+    potentials = []
+    
+    for i in range(4): # Rotate in steps of 90 to look for markers, if 180 fails
+        stepMotorsRotate(robot, convertAngToSteps(90)) #goes 90 one way
+        target = findTargetMarker(robot, marker_type)
+        if target:
+            potentials.append(target)
+    if not potentials:
+        return None
+    best = min(potentials, key=lambda m: m.position.distance)     # picks closest
+    print(f"Best marker is #{best.id} at {best.position.distance}mm")
+    
+    alignToTarget(robot, best.id)
+    return best
+
+
+
+def alignToTarget(robot, target_id):
+    print(f"Aligning to marker {target_id}")
+    target = None
+    aligned = False
+    tries = 0
+    while not aligned:
+        markers = robot.camera.see()
+        for m in markers:
+            if m.id == target_id:
+                target = m
+                break
+
+        if target:
+            horA = targetMarkerAngleH(robot, target)
+            print(f"Current angle: {horA}")
+            turn_ang = convertAngToSteps(horA)
+            robot.sleep(0.5)
+
+            if abs(horA) > 5:
+                stepMotorsRotate(robot, turn_ang)
+                aligned = False
+            elif abs(horA) <= 5:
+                print("Aligned")
+                aligned = True
+            robot.sleep(1)
+        else:
+            if tries > 3:
+                return aligned
+            print("Lost marker, rotating")
+            stepMotorsRotate(convertAngToSteps(30)) # Spin to find it again
+            robot.sleep(0.67)
+            tries += 1
+    return aligned
+
+def returnToHome(robot):
+    markerIDs["home"] = getHomeMarkerIds(robot)
+    # 1. find home marker
+    home = findTargetMarker(robot, "home")
+    if home is None:
+        home = findTargetMarker(robot, "home")
+    if home is None:
+        print("Cannot find home marker!")
+        return False
+    
+    alignToTarget(robot, home.id)
+    
+    home = getMarkerFromID(robot, home.id)  # refresh distance
+    dist = horDistCalculate(robot, home)
+    stepMotors(robot, convertDistToSteps(dist * 0.75))
+    
+    alignToTarget(robot, home.id) #realign before final approach
+    
+    # drive the rest with checks
+    home = getMarkerFromID(robot, home.id)  # refresh distance again
+    dist = horDistCalculate(robot, home)
+    steps_remaining = convertDistToSteps(dist)
+    step_size = 100  # drive in small chunks
+
+    while steps_remaining > 0:
+        stepMotors(robot, min(step_size, steps_remaining))
+        steps_remaining -= step_size
+        alignToTarget(robot, home.id)  # check alignment each chunk
+        home = getMarkerFromID(robot, home.id)
+        if home:
+            dist = horDistCalculate(home)
+            if dist < 150:
+                return True
+    
+    return True
+
+
+def obtainMarker(robot, targ_id, servo1, servo2):
+    if targ_id != None:
+        targetMarker = getMarkerFromID(robot, targ_id)
+        stepMotorsForward(robot, int(horDistCalculate(targetMarker) * 0.75 * STEPS_PER_MM)) # goes 75% of the distance to marker
+
+        targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for second time
+
+        if targetMarker != None: # Once gone straight, check the marker is still in range.
+            aligned = alignToTarget(robot, targ_id)
+
+            if aligned:
+                targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for third time
+                if targetMarker != None:
+                    mechanismOpen(robot, servo1, servo2)
+                    stepMotorsForward(robot, int(horDistCalculate(targetMarker) * STEPS_PER_MM)) # goes the rest of the distance to the first marker.
+                    mechanismClose(robot, servo1, servo2)
+                    return True
+    return False
+
+def obtainMarkerTop(robot, targ_id, servo1, servo2, servoTop):
+    if targ_id != None:
+        sweep(robot, servoTop)
+        targetMarker = getMarkerFromID(robot, targ_id)
+        stepMotorsForward(robot, int(horDistCalculateTop(targetMarker) * 0.75 * STEPS_PER_MM)) # goes 75% of the distance to marker
+
+        targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for second time
+        if targetMarker != None: # Once gone straight, check the marker is still in range.
+            alignToTarget(robot, targ_id)
+
+            targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for third time
+            if targetMarker != None:
+                mechanismOpen(robot, servo1, servo2)
+                stepMotorsForward(robot, int(targetMarker.position.distance * STEPS_PER_MM)) # goes the rest of the distance to the first marker.
+                
+                unsweep(robot, servoTop) # once it is at the marker, top mechanism goes down
+                stepMotors(-1800) # go backwards to get marker on the floor
+                stepMotors(900) # stab in the dark - goes forward to get the box into the robot
+                mechanismClose(robot, servo1, servo2)
+                return True
+    return False
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def angCheck(robot, horA):
     if abs(horA) > 15:
@@ -110,145 +256,13 @@ def distCheck(robot, dist):
         robot.kch.leds[LED_A].colour = Colour.OFF
         robot.kch.leds[LED_C].colour = Colour.OFF
 
-
     elif dist <= 0.3:
         robot.kch.leds[LED_C].colour = Colour.GREEN
         robot.kch.leds[LED_A].colour = Colour.OFF
         robot.kch.leds[LED_B].colour = Colour.OFF
-
 
     elif not dist:
         robot.kch.leds[LED_A].colour = Colour.OFF
         robot.kch.leds[LED_B].colour = Colour.OFF
         robot.kch.leds[LED_C].colour = Colour.OFF
         return 'error'
-
-
-def findNextMarker360(robot):
-    distances = []
-    closeMarker = []
-    markers = robot.camera.see()
-    for i in range(12):
-        if not markers:
-            print("No markers detected. Rotating to search...")
-            stepMotorsRotate(robot, convertAngToSteps(robot, 90))
-            robot.sleep(1)
-        else:
-            for marker in markers:
-                distances.append(marker.position.distance)
-                targetMarkerD = min(distances)
-
-            for marker in markers:
-                if marker.position.distance == targetMarkerD:
-                    targetMarker = marker
-                    closeMarker.append(targetMarker)
-                else:
-                    print("The values do not match.")
-            stepMotorsRotate(robot, convertAngToSteps(robot, 30))
-    return min(closeMarker)
-
-
-def compareTargetMarkerID(robot, targetMarkerID):
-    markers = robot.camera.see()
-    for marker in markers:
-        print("The marker ID currently being compared is:", marker.id)
-        print("The marker position distance currently being compared is:", marker.position.distance)
-        if marker.id == targetMarkerID:
-            targetMarker = marker
-            print("Target Marker ID is #{0}".format(
-                marker.id
-            ))
-            return targetMarker
-        else:
-            print("The values do not match.")
-
-def targetMarkerAngle(targetMarker):
-    horAngle = toDegrees(targetMarker.position.horizontal_angle)
-    horAngle = round(horAngle,2)
-    return(horAngle)
-
-def alignToTarget(robot, target): #--FINISH LATER--
-    print(f"Aligning to marker {target.id}")
-    
-    while True:
-        markers = robot.camera.see()
-        target = None
-        for m in markers:
-            if m.id == target.id:
-                target = m
-                break 
-                
-        if target:
-            horA = targetMarkerAngle(target)
-            print(f"Current angle: {horA}")
-            nudge_size = convertAngToSteps(robot, horA)
-            
-            if abs(horA) > 2:
-                stepMotorsRotate(robot, nudge_size)
-            elif abs(horA) <= 2:
-                print("Aligned")
-                robot.kch.leds[LED_A].colour = Colour.GREEN
-                robot.kch.leds[LED_B].colour = Colour.GREEN
-                robot.kch.leds[LED_C].colour = Colour.GREEN
-                robot.sleep(5)
-                break        
-        else:
-            print("Lost marker, rotating")
-            stepMotorsRotate(robot, convertAngToSteps(robot, 30)) # Spin to find it again
-            
-        robot.sleep(1)
-
-def returnToHome(robot, my_home_ids):
-    print("Action: Returning to Home")
-    curr_home_id = None
-    while not curr_home_id:
-        markers = robot.camera.see()
-        for m in markers:
-            if m.id in my_home_ids:
-                curr_home_id = m.id
-                print(f"Home marker {curr_home_id} spotted.")
-                break
-        
-        if curr_home_id is None:
-            print("Home not in sight. Searching...")
-            stepMotorsRotate(robot, 40)
-            robot.sleep(1)
-    aligned = None
-    while not aligned:
-        aligned = alignToTarget(robot, curr_home_id)
-    
-    print("Aligned. Driving to zone...")
-    reached = False
-    while not reached:
-        markers = robot.camera.see()
-        for m in markers:
-            if m.id == curr_home_id:
-                homeM = m
-                print(f"Home marker {curr_home_id} spotted.")
-                break        
-        if homeM:
-            dist = horDistCalculate(robot, homeM)
-            print(f"Distance to home: {dist}m")
-            stepMotors(robot, convertDistToSteps(robot, dist))
-
-            if dist < 150: 
-                print("Inside Home Zone. Stopping.")
-                reached = True
-                break
-        else:
-            print("Lost sight of home marker. Stopping.")
-            stepMotorsRotate(robot, convertAngToSteps(robot, 30)) # Spin to find it again
-            robot.sleep(1)
-    return
-
-def backToBase(robot, homeMarkers):  #same function as one above, so need to cimpare fucntionality. 
-    targetMarker = findTargetMarker(robot, "arena")
-    while targetMarker is None:
-        targetMarker = findTargetMarker(robot, "arena")
-        if targetMarker is None:
-            stepMotorsRotate(robot, convertStepsToAngle(60))
-            robot.sleep(0.1)
-            if findHomeMarker(robot, homeMarkers) is not None:
-                alignToTarget(robot, findHomeMarker(robot, homeMarkers))
-                dist = distToMoveMM(robot, targetMarker)
-                break
