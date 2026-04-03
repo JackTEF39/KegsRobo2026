@@ -5,12 +5,15 @@ import cv2
 from Movement import *
 from Vision import *
 from Mechanism import *
+from Helpers import *
+#from AcidStrategy import *
+#from BaseStrategy import *
 
 robot = Robot()
+markerIDs["home"] = getHomeMarkerIds(robot)
 
 CAMHEIGHT = 120 #height of the camera from the ground in metres
 #CAMANGLE = 20 #angle of the camera to the ground in degrees
-STEPS_PER_MM = 2.476 #How far the robot moves per step of the motor (in mm)
 
 #Motor control:
 #700 counts of the encoder per one full rotation of the motor
@@ -18,29 +21,18 @@ STEPS_PER_MM = 2.476 #How far the robot moves per step of the motor (in mm)
 
 my_motor_board = robot.motor_board      #declarations
 my_arduino_board = robot.arduino
-my_servo_board = robot.servo_board
 my_power_board = robot.power_board
 
 servo1 = robot.servo_board.servos[0]
 servo2 = robot.servo_board.servos[1]
+servoTop = robot.servo_board.servos[2]
 
 robot.arduino.pins[3].mode = INPUT_PULLUP # Encoder inputs need to be pullup or the motor won't run (learnt the hard way)
 robot.arduino.pins[2].mode = INPUT_PULLUP
 robot.arduino.pins[5].mode = INPUT_PULLUP
 robot.arduino.pins[4].mode = INPUT_PULLUP
 
-def getHomeMarkerIds(robot):
-    z = robot.zone 
-    zone_map = {
-        0: (0, 18, 19),    
-        1: (3, 4, 5),    
-        2: (8, 9, 10), 
-        3: (13, 14, 15),  
-    }
-    
-    my_home_ids = zone_map.get(z, (0, 18, 19)) # Default to zone 0 if something goes wrong
-    print(f"Zone is {z}. Looking for Home IDs: {my_home_ids}")
-    return my_home_ids
+
 
 def initialise():
     marker = findTargetMarker(robot)
@@ -71,7 +63,7 @@ def moveWithChecks(robot, distance, targetId):
 def visionMvnmtTest1():                          #isolated vision and mvnmt test no checks
     target = findTargetMarker(robot)
     alignToTarget(robot, target)
-    dist = horDistCalculate(robot, target)
+    dist = horDistCalculate(target)
     print(f"Distance to target: {dist}m")
     stepMotorsForward(robot, 2000)
 
@@ -84,122 +76,74 @@ def visionMvnmtTest2():                      #vision and mvnmt test with checks
     target = findTargetMarker(robot)
     print(f"Target {target.id} found. Aligning")
     alignToTarget(robot, target)
-    dist = horDistCalculate(robot, target)
+    dist = horDistCalculate(target)
     print(f"Distance to target: {dist}m")
     moveWithChecks(robot, dist -100, target.id)
 
 def fullSysTest():                              #vision mvmnt + mechanism test
     target = findTargetMarker(robot)
     alignToTarget(robot, target)
-    dist = horDistCalculate(robot, target)
-    mechanismOpen(servo1, servo2, robot)
+    dist = horDistCalculate(target)
+    mechanismOpen(robot, servo1, servo2)
     print(f"Distance to target: {dist}m")
     stepMotorsForward(robot, 2000)
-    mechanismClose(servo1, servo2, robot)
+    mechanismClose(robot, servo1, servo2)
 
-angleesss = True
-distssss = False
 # ---MAIN LOOP--- 
-print('robot started')
+                                                        ###############
+startTime = robot.time()
+endTime = 0
+duration = 0
+
 indicatePowerOn(robot)
+sweep(robot, servoTop)
+mechanismClose(robot, servo1, servo2)
+print("Starting...")
+targ_id = findTargetMarker(robot, COLLECTING_PH).id # might give error if doesn't see marker, but it alr lined up at start so should be fine
+aligned = False
 
-targ = None
-targ_id = None
-print("Starting search...")
+# Start - go to first marker (assumed straight on)
+obtainedMarker = obtainMarker(robot, targ_id, servo1, servo2)
 
-while targ is None:
-    markers = robot.camera.see()
-    
-    if len(markers) > 0:
-        # We found at least one marker!
-        targ = markers[0]
-        targ_id = targ.id
-        print(f"Target {targ.id} acquired.")
-    else:
-        # No markers seen, nudge the robot and try again
-        print("Nothing seen. Nudging...")
-        stepMotorsRotate(robot, 10) # Small turn
-        robot.sleep(0.2)
-al = False
-while not al:
-    al = alignToTarget(robot, targ_id)
-targ = None
-markers = robot.camera.see()
-for m in markers:
-    if m.id == targ_id:
-        targ = m
-if targ:
-    dist = horDistCalculate(robot, targ)
-    print(f"Travelling {dist}mm now")
-    stepMotorsForward(robot, convertDistToSteps(robot, dist))
-    print(f"Should be at target now")
-else:
-    print("Lost target")
+if obtainedMarker:
+    markerIDsAcquired.append(targ_id)
+print(markerIDsAcquired)
 
+endTime = robot.time()
+duration = endTime - startTime
 
+if MATCH_DURATION - duration > ABORT_THRESHOLD:
+    # Find second marker
+    final_targ = findTargetMarker(robot, COLLECTING_PH)
+    targ_id = findTargetMarker(robot, COLLECTING_PH).id
+    aligned = alignToTarget(robot, targ_id)
 
+    obtainedMarker = obtainMarker(robot, targ_id, servo1, servo2) 
 
+    if obtainedMarker:
+        markerIDsAcquired.append(targ_id)
+    print(markerIDsAcquired)
 
+returnToHome(robot) # goes home
 
+# deposit
+mechanismOpen(robot, servo1, servo2)
+stepMotors(-900)
 
+endTime = robot.time()
+duration = endTime - startTime
 
+if MATCH_DURATION - duration > ABORT_THRESHOLD:
+    # Go for the top boxes next
+    stepMotorsRotate(robot, convertAngToSteps(180)) # face the middle
 
+    targ_id = findTargetMarker(robot, COLLECTING_PH, True).id
+    aligned = alignToTarget(robot, targ_id)
 
+    obtainedMarker = obtainMarkerTop(robot, targ_id, servo1, servo2, servoTop)
 
+    if obtainedMarker:
+            markerIDsAcquired.append(targ_id)
+    print(markerIDsAcquired)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# while distssss ==  True:
-#     marks = robot.camera.see() 
-    
-#     if len(marks) > 0: 
-#         mark = marks[0] 
-#         dist = mark.position.distance / 1000
-#         print(f"Marker distance: {mark.position.distance}mm") 
-#         distCheck(robot, dist)
-#     else:
-#         print("No marker detected")
-#         robot.kch.leds[LED_A].colour = Colour.OFF
-#         robot.kch.leds[LED_B].colour = Colour.OFF
-#         robot.kch.leds[LED_C].colour = Colour.OFF
-    
-#     robot.sleep(0.1) 
-
-
-# while angleesss == True:
-#     marks = robot.camera.see() 
-    
-#     if len(marks) > 0: 
-#         mark = marks[0] 
-#         horA = targetMarkerAngle(mark)
-
-#         print(f"Marker angle: {horA} degrees") 
-#         angCheck(robot, horA)
-#     else:
-#         print("No marker detected")
-#         robot.kch.leds[LED_A].colour = Colour.OFF
-#         robot.kch.leds[LED_B].colour = Colour.OFF
-#         robot.kch.leds[LED_C].colour = Colour.OFF
-    
-#     robot.sleep(0.1) 
+    returnToHome(robot) # goes home
