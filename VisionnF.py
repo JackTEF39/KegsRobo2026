@@ -14,7 +14,7 @@ MATCH_DURATION = 150 # Total match length in seconds
 ABORT_THRESHOLD = 20 # How many seconds before the end to head home
 
 markerIDsAcquired = [] # Array to store which marker IDs robot has successfully collected
-COLLECTING_PH = "base" # MANUALLY Change this to acid or base before game starts!!
+COLLECTING_PH = "acid" # MANUALLY Change this to acid or base before game starts!!
 
 
 def decidePH(robot, COLLECTING_PH): 
@@ -35,7 +35,7 @@ def decidePH(robot, COLLECTING_PH):
 
             
 #function to search all markers and find the target Marker (marker the shortest distance away)
-def findTargetMarker(robot, marker_type=None):
+def findTargetMarker(robot, marker_type=None, top = False):
     valid_marker = []
     markers = robot.camera.see()
     if not markers:
@@ -45,8 +45,12 @@ def findTargetMarker(robot, marker_type=None):
 
     for marker in markers:
         verA = targetMarkerAngleV(robot, marker)
-        if marker.id in markerIDs[marker_type] and marker.id not in markerIDsAcquired and verA > 5: # Only grabs what we are looking for: #new addition- need to integrate zone ids
-            valid_marker.append(marker)
+        if not top:
+            if marker.id in markerIDs[marker_type] and marker.id not in markerIDsAcquired and verA < 5: # Only grabs what we are looking for: #new addition- need to integrate zone ids
+                valid_marker.append(marker)
+        else:
+            if marker.id in markerIDs[marker_type] and marker.id not in markerIDsAcquired and verA > 5: # Only grabs what we are looking for: #new addition- need to integrate zone ids
+                valid_marker.append(marker)
     
     if valid_marker:
         targetMarker = min(valid_marker, key=lambda m: m.position.distance)
@@ -102,11 +106,7 @@ def alignToTarget(robot, target_id):
     aligned = False
     tries = 0
     while not aligned:
-        markers = robot.camera.see()
-        for m in markers:
-            if m.id == target_id:
-                target = m
-                break
+        target = getMarkerFromID(robot, target_id)
 
         if target:
             horA = targetMarkerAngleH(robot, target)
@@ -126,53 +126,16 @@ def alignToTarget(robot, target_id):
                 return aligned
             print("Lost marker, rotating")
             stepMotorsRotate(robot, convertAngToSteps(30)) # Spin to find it again
-            robot.sleep(0.67)
+            robot.sleep(1)
             tries += 1
     return aligned
 
 def returnToHome(robot):
-    print("Returning to Home")
-    curr_home_id = None
-    while not curr_home_id:
-        cur
-        
-        if curr_home_id is None:
-            print("Home not in sight. Searching...")
-            stepMotorsRotate(robot, 40)
-            robot.sleep(1)
-
-    alignToTarget(robot, curr_home_id)
-    
-    print("Aligned. Driving to zone...")
-    reached = False
-    while not reached:
-        markers = robot.camera.see()
-        for m in markers:
-            if m.id == curr_home_id:
-                homeM = m
-                print(f"Home marker {curr_home_id} spotted.")
-                break        
-        if homeM:
-            dist = horDistCalculate(homeM)
-            print(f"Distance to home: {dist}m")
-            stepMotors(robot, dist)
-
-            if dist < 150: 
-                print("Inside Home Zone. Stopping.")
-                reached = True
-                break
-        else:
-            print("Lost sight of home marker. Stopping.")
-            stepMotorsRotate(robot, convertAngToSteps(30)) # Spin to find it again
-            robot.sleep(1)
-    return
-
-def returnToHome(robot):
     # 1. find home marker
     home = findTargetMarker(robot, "home")
-    if home is None:
+    if home == None:
         home = findTargetMarker(robot, "home")
-    if home is None:
+    if home == None:
         print("Cannot find home marker!")
         return False
     
@@ -200,6 +163,48 @@ def returnToHome(robot):
             return True
     
     return True
+
+def obtainMarker(robot, targ_id, servo1, servo2):
+    if targ_id != None:
+        targetMarker = getMarkerFromID(robot, targ_id)
+        stepMotorsForward(robot, int(horDistCalculate(targetMarker) * 0.75 * STEPS_PER_MM)) # goes 75% of the distance to marker
+
+        targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for second time
+
+        if targetMarker != None: # Once gone straight, check the marker is still in range.
+            aligned = alignToTarget(robot, targ_id)
+
+            if aligned:
+                targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for third time
+                if targetMarker != None:
+                    mechanismOpen(robot, servo1, servo2)
+                    stepMotorsForward(robot, int(horDistCalculate(targetMarker) * STEPS_PER_MM)) # goes the rest of the distance to the first marker.
+                    mechanismClose(robot, servo1, servo2)
+                    return True
+    return False
+
+def obtainMarkerTop(robot, targ_id, servo1, servo2, servoTop):
+    if targ_id != None:
+        sweep(robot, servoTop)
+        targetMarker = getMarkerFromID(robot, targ_id)
+        stepMotorsForward(robot, int(horDistCalculateTop(targetMarker) * 0.75 * STEPS_PER_MM)) # goes 75% of the distance to marker
+
+        targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for second time
+        if targetMarker != None: # Once gone straight, check the marker is still in range.
+            alignToTarget(robot, targ_id)
+
+            targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for third time
+            if targetMarker != None:
+                mechanismOpen(robot, servo1, servo2)
+                stepMotorsForward(robot, int(targetMarker.position.distance * STEPS_PER_MM)) # goes the rest of the distance to the first marker.
+                
+                unsweep(robot, servoTop) # once it is at the marker, top mechanism goes down
+                stepMotors(-1800) # go backwards to get marker on the floor
+                stepMotors(900) # stab in the dark - goes forward to get the box into the robot
+                mechanismClose(robot, servo1, servo2)
+                return True
+    return False
+
 
 
 

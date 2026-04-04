@@ -12,9 +12,6 @@ from HelpersF import *
 robot = Robot()
 markerIDs["home"] = getHomeMarkerIds(robot)
 
-CAMHEIGHT = 120 #height of the camera from the ground in metres
-#CAMANGLE = 20 #angle of the camera to the ground in degrees
-
 #Motor control:
 #700 counts of the encoder per one full rotation of the motor
 #When the motor is rotating anticlockwise the A output's square wave is before the B output's and vice versa.
@@ -90,139 +87,59 @@ def fullSysTest():                              #vision mvmnt + mechanism test
     mechanismClose(servo1, servo2, robot)
 
 # ---MAIN LOOP--- 
-                                                        ###############
+startTime = robot.time()
+endTime = 0
+duration = 0
 
-# We haven't separated out the bottom and top boxes code, you sweep while trying to get floor boxes???
-
+indicatePowerOn(robot)
 sweep(robot, servoTop)
 mechanismClose(servo1, servo2, robot)
 print("Starting...")
-targ_id = findTargetMarker(robot, ).id
+targ_id = findTargetMarker(robot, COLLECTING_PH).id
 aligned = False
 
 # Start - go to first marker (assumed straight on)
-if targ_id != None:
-    targetMarker = getMarkerFromID(robot, targ_id)
-    stepMotorsForward(robot, int(targetMarker.position.distance * 0.75 * STEPS_PER_MM)) # goes 75% of the distance to the first marker
+obtainedMarker = obtainMarker(robot, targ_id, servo1, servo2)
 
-    targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for second time
-    if targetMarker != None: # Once gone straight, check the marker is still in range.
-        alignToTarget(robot, targ_id)
+if obtainedMarker:
+    markerIDsAcquired.append(targ_id)
+print(markerIDsAcquired)
 
-        targetMarker = getMarkerFromID(robot, targ_id) # Obtain marker for third time
-        if targetMarker != None:
-            mechanismOpen(robot, servo1, servo2)
-            stepMotorsForward(robot, int(targetMarker.position.distance * STEPS_PER_MM)) # goes the rest of the distance to the first marker.
-            mechanismClose(robot, servo1, servo2)
-                                                        ############
-print("Hopefully obtained first marker")
+endTime = robot.time()
+duration = endTime - startTime
 
-while not aligned:    
-    # 1. Look for markers, align robot to marker
-    markers = robot.camera.see()
-    if markers:
-        targ_id = findTargetMarker(robot).id
-        aligned = alignToTarget(robot, targ_id)
-        if aligned:
-            sweeper(robot, servoTop)
-            break
-    else:
-            print("Searching... [1 deg nudge]")
-            stepMotorsRotate(robot, 20)
-            robot.sleep(0.3)
+if MATCH_DURATION - duration > ABORT_THRESHOLD:
+    # Find second marker
+    final_targ = findTargetMarker(robot, COLLECTING_PH)
+    targ_id = findTargetMarker(robot, COLLECTING_PH).id
+    aligned = alignToTarget(robot, targ_id)
 
-# 2. GET FRESH DATA once align
-robot.sleep(0.5)
-markers = robot.camera.see()
-final_targ = findTargetMarker(robot)
+    obtainedMarker = obtainMarker(robot, targ_id, servo1, servo2) 
 
-# 3. Move and Grab
-if final_targ:
-    dist_mm = horDistCalculate(final_targ)
-    print(f"Driving {dist_mm}mm")
-    
-    mechanismOpen(robot, servo1, servo2) 
-    
-    stepMotorsForward(robot, convertDistToSteps(dist_mm))
-    
-    mechanismClose(robot, servo1, servo2)
-    print("Grabbed!")
-    
-    stepMotorsForward(robot, -500)
+    if obtainedMarker:
+        markerIDsAcquired.append(targ_id)
+    print(markerIDsAcquired)
 
+returnToHome(robot) # goes home
 
+# deposit
+mechanismOpen(robot, servo1, servo2)
+stepMotors(-900)
 
-#---STUFF THAT SIRT (wut???) IF WORKS
-target = robot.camera.see()[0]
-while not aligned:    
-    # 1. Look for markers, align robot to marker
-    markers = robot.camera.see()
-    if markers:
-        target = markers[0]
-        last_seen_time = robot.time(robot) # Reset the timer
-        print(f"Target {target.id} found! Locking on.")
-        aligned = alignToTarget(robot, target_id)
-    else:
-        if robot.time(robot) - last_seen_time > 4.5: #Looking for marker again if robot loses sight of it for more than 2.5 seconds
-            print("Searching... [1 deg nudge]")
-            stepMotorsRotate(robot, 4)
-            robot.sleep(0.3)
+endTime = robot.time()
+duration = endTime - startTime
 
+if MATCH_DURATION - duration > ABORT_THRESHOLD:
+    # Go for the top boxes next
+    stepMotorsRotate(robot, convertAngToSteps(180)) # face the middle
 
+    targ_id = findTargetMarker(robot, COLLECTING_PH, True).id
+    aligned = alignToTarget(robot, targ_id)
 
+    obtainedMarker = obtainMarkerTop(robot, targ_id, servo1, servo2, servoTop)
 
+    if obtainedMarker:
+            markerIDsAcquired.append(targ_id)
+    print(markerIDsAcquired)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# while distssss ==  True:
-#     marks = robot.camera.see() 
-    
-#     if len(marks) > 0: 
-#         mark = marks[0] 
-#         dist = mark.position.distance / 1000
-#         print(f"Marker distance: {mark.position.distance}mm") 
-#         distCheck(robot, dist)
-#     else:
-#         print("No marker detected")
-#         robot.kch.leds[LED_A].colour = Colour.OFF
-#         robot.kch.leds[LED_B].colour = Colour.OFF
-#         robot.kch.leds[LED_C].colour = Colour.OFF
-    
-#     robot.sleep(0.1) 
-
-
-# while angleesss == True:
-#     marks = robot.camera.see() 
-    
-#     if len(marks) > 0: 
-#         mark = marks[0] 
-#         horA = targetMarkerAngle(mark)
-
-#         print(f"Marker angle: {horA} degrees") 
-#         angCheck(robot, horA)
-#     else:
-#         print("No marker detected")
-#         robot.kch.leds[LED_A].colour = Colour.OFF
-#         robot.kch.leds[LED_B].colour = Colour.OFF
-#         robot.kch.leds[LED_C].colour = Colour.OFF
-    
-#     robot.sleep(0.1) 
+    returnToHome(robot) # goes home

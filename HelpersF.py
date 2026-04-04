@@ -7,7 +7,9 @@ import robot
 
 STEPS_PER_MM = 2.476  #How far robot moves per step (in mm)
 STEPS_PER_DEGREE = 4.4 #number of steps for 1° turn (guess)
-CAMHEIGHT = 120 #height of camera from the ground in mm
+CAMHEIGHT = 120 # vertical height of camera from the ground in mm
+CAM_TO_PLATFORM_BOX = 125 # vertical height from the camera to the centre of a box on the platform.
+# explanation: camera is 120mm above the ground, and the box centre is 245mm. 245 - 120 = 125mm 
 
 def getHomeMarkerIds(robot):
     z = robot.zone 
@@ -56,6 +58,11 @@ def toRadians(degrees):
 
 def horDistCalculate(targetMarker):
     dist = targetMarker.position.distance **2 - CAMHEIGHT**2
+    dist = math.sqrt(dist)
+    return dist
+
+def horDistCalculateTop(targetMarker):
+    dist = targetMarker.position.distance **2 - CAM_TO_PLATFORM_BOX**2
     dist = math.sqrt(dist)
     return dist
 
